@@ -113,7 +113,7 @@ print(user1.get_user_info())
 
 ################################################################################################################################################################
 
-# Remplacer 'BTC-USD' par le ticker de votre choix
+# Remplace 'BTC-USD' by the ticker you want
 """
 ticker = yfinance.Ticker("BTC-USD")
 info = ticker.info
