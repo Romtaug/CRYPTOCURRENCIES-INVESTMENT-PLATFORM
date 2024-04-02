@@ -21,8 +21,8 @@ libraries = [
     'yfinance',  # For financial data
     'subprocess',  # Included as it's used within the script
     'sys',  # Also included for the same reason
-    'matplotlib.pyplot',
-    'datetime'
+    'matplotlib.pyplot', # For charts
+    'datetime' # For having the current date
 ]
 
 import matplotlib.pyplot as plt
@@ -37,7 +37,7 @@ print("\n" + "-"*50 + "\n")
 
 #####################################################################################################################
 
-# Class to create a user account and manage portfolios
+# Class to create a user account and manage wallets
 class UserAccount:
     def __init__(self, username, password, email, first_name=None, last_name=None):
         self.username = username
