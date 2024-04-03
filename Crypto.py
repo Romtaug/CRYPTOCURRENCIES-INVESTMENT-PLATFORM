@@ -1,54 +1,128 @@
-# Define a function to install and import a package
-def install_and_import(package):
+import subprocess
+import sys
+import os
+
+def install_and_import(package, import_as=None):
+    if not import_as:
+        import_as = package
     try:
-        __import__(package)
-        print(f"{package} is already installed.")
+        __import__(import_as)
+        print(f"{import_as} is already installed.")
     except ImportError:
-        print(f"{package} is not installed. Attempting installation...")
+        print(f"{import_as} is not installed. Attempting installation...")
         try:
             subprocess.check_call([sys.executable, "-m", "pip", "install", package])
             print(f"{package} was successfully installed.")
+            globals()[import_as] = __import__(import_as)
         except Exception as e:
             print(f"Error during the installation of {package}: {e}")
-            return None
-    finally:
-        # Attempt to import again after installation
-        globals()[package] = __import__(package)
 
-# List of all libraries needed
-libraries = [
-    're',  # For regular expressions
-    'yfinance',  # For financial data
-    'subprocess',  # Included as it's used within the script
-    'sys',  # Also included for the same reason
-    'matplotlib.pyplot', # For charts
-    'datetime' # For having the current date
-]
+libraries = {
+    're': 're',  
+    'yfinance': 'yfinance', 
+    'matplotlib': 'matplotlib.pyplot',  
+    'datetime': 'datetime',
+    'openpyxl': 'openpyxl',
+    'uuid' : 'uuid'
+}
+
+for package, import_as in libraries.items():
+    install_and_import(package, import_as)
 
 import matplotlib.pyplot as plt
+import datetime
+import yfinance
+import uuid
+
+import openpyxl
+from openpyxl.utils import get_column_letter
+from openpyxl import Workbook, load_workbook
+from openpyxl.drawing.image import Image
+
+from datetime import date
 
 print()
-print("\n" + "-"*50 + "\n")
-# Using the function to install and import each library
-for library in libraries:
-    install_and_import(library)
-
-print("\n" + "-"*50 + "\n")
 
 #####################################################################################################################
-
-# Class to create a user account and manage wallets
 class UserAccount:
+    existing_usernames = set()
+    
+    excel_file = 'user_accounts.xlsx'
+
     def __init__(self, username, password, email, first_name=None, last_name=None):
+        if username in UserAccount.existing_usernames:
+            raise ValueError(f"Username '{username}' is already taken. Please choose a different username.")
         self.username = username
-        self.__password = password  # Marked as private
+        UserAccount.existing_usernames.add(username)
+        self.__password = password  
         self.email = email
         self.first_name = first_name
         self.last_name = last_name
-        self.portfolios = []  # Uses a list to manage multiple portfolios
+        self.portfolios = []
+        self.save_user_to_excel()
+        
+    excel_file = 'CryptoInvestmentData.xlsx'
+    sheet_name = 'User Info'
+    
+    def get_portfolios_string(self):
+        return ', '.join(portfolio.name for portfolio in self.portfolios)
+
+    def save_user_to_excel(self):
+        try:
+            wb = openpyxl.load_workbook(UserAccount.excel_file)
+            if UserAccount.sheet_name not in wb.sheetnames:
+                ws = wb.create_sheet(UserAccount.sheet_name)
+                ws.append(['Username', 'Email', 'First Name', 'Last Name', 'Total Liquidity', 'Portfolios', 'Portfolio IDs'])
+            else:
+                ws = wb[UserAccount.sheet_name]
+        except FileNotFoundError:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = UserAccount.sheet_name
+
+            ws.append(['Username', 'Email', 'First Name', 'Last Name', 'Total Liquidity', 'Portfolios', 'Portfolio IDs'])
+        
+        existing_row_index = None
+        for idx, row in enumerate(ws.iter_rows(min_row=2, values_only=True), start=2):
+            if row[0] == self.username:
+                existing_row_index = idx
+                break
+
+        portfolio_ids = ', '.join(str(portfolio.id) for portfolio in self.portfolios)
+        if existing_row_index:
+            ws.cell(row=existing_row_index, column=2, value=self.email)
+            ws.cell(row=existing_row_index, column=3, value=self.first_name if self.first_name else '')
+            ws.cell(row=existing_row_index, column=4, value=self.last_name if self.last_name else '')
+            ws.cell(row=existing_row_index, column=5, value=self.view_total_liquidity())
+            ws.cell(row=existing_row_index, column=6, value=self.get_portfolios_string())
+            ws.cell(row=existing_row_index, column=7, value=portfolio_ids) 
+        else:
+            ws.append([
+                self.username,
+                self.email,
+                self.first_name if self.first_name else '',
+                self.last_name if self.last_name else '',
+                self.view_total_liquidity(),
+                self.get_portfolios_string(),
+                portfolio_ids  
+            ])
+
+        wb.save(UserAccount.excel_file)
+
+
+    def view_total_liquidity(self):
+        return sum(portfolio.liquidity for portfolio in self.portfolios)
+
 
     def set_username(self, new_username):
+        if new_username in UserAccount.existing_usernames:
+            print(f"Username '{new_username}' is already taken. Please choose a different username.")
+            return False
+
+        UserAccount.existing_usernames.discard(self.username)
         self.username = new_username
+        UserAccount.existing_usernames.add(new_username)
+        return True
     
     def set_password(self, new_password):
         self.__password = new_password
@@ -63,28 +137,21 @@ class UserAccount:
         self.last_name = new_last_name
     
     def add_portfolio(self, new_portfolio):
-        # Checks if a portfolio with the same name already exists
         if any(p.name == new_portfolio.name for p in self.portfolios):
             print(f"A portfolio named '{new_portfolio.name}' already exists for user {self.username}.")
-            return False  # Indicates the portfolio was not added
-        # Adds the new portfolio to the list
+            return False
         self.portfolios.append(new_portfolio)
         print(f"Portfolio '{new_portfolio.name}' added successfully for user {self.username}.")
-        return True  # Indicates the portfolio was successfully added
+        return True
 
     def remove_portfolio(self, portfolio_to_remove):
-        # Searches the portfolio by its name
         for idx, portfolio in enumerate(self.portfolios):
             if portfolio.name == portfolio_to_remove.name:
-                del self.portfolios[idx]  # Removes the portfolio from the list
+                del self.portfolios[idx] 
                 print(f"The portfolio '{portfolio_to_remove.name}' was successfully removed.")
-                return True  # Indicates the portfolio was successfully removed
+                return True
         print(f"No portfolio named '{portfolio_to_remove.name}' found.")
-        return False  # Indicates the portfolio was not found and thus not removed
-    
-    def view_total_liquidity(self):
-        total_liquidity = sum(portfolio.liquidity for portfolio in self.portfolios)
-        return total_liquidity
+        return False
     
     def get_user_info(self):
         info = f"Username: {self.username}, Email: {self.email}, First Name: {self.first_name}, Last Name: {self.last_name}"
@@ -104,16 +171,16 @@ class UserAccount:
 user1 = UserAccount("johnDoe123", "supersecretpassword", "johndoe@example.com", "John", "Doe")
 print(user1.get_user_info())
 
-Updating user information
+#Updating user information
 user1.set_email("newemail@example.com")
 user1.set_first_name("Johnny")
 user1.set_last_name("Doe II")
 print(user1.get_user_info())
+user1.save_user_to_excel()
 """
 
 ################################################################################################################################################################
 
-# Remplace 'BTC-USD' by the ticker you want
 """
 ticker = yfinance.Ticker("BTC-USD")
 info = ticker.info
@@ -121,7 +188,6 @@ Imprime toutes les clés et leurs valeurs associées
 for key, value in info.items():
    print(f"{key}: {value}")
 """
-    
 class Crypto:
     def __init__(self, ticker):
         self.ticker = ticker
@@ -129,7 +195,6 @@ class Crypto:
         self.load_info()
 
     def load_info(self):
-        """Loads cryptocurrency information from Yahoo Finance."""
         try:
             self.info = yfinance.Ticker(self.ticker).info
         except Exception as e:
@@ -164,66 +229,97 @@ class Crypto:
         else:
             return "Description not available."
 
-    def analyze_investment_opportunity(self):
-        # Get today's date in YYYY-MM-DD format
+    def analyze_investment_opportunity(self, show_plot=False):
         today = datetime.date.today()
         today_str = today.strftime('%Y-%m-%d')
-
-        # Download historical data for the specified ticker
         data = yfinance.download(self.ticker, start="2020-01-01", end=today_str)
-        
-        # Calculate moving averages for 120 and 240 days
         data['MA120'] = data['Adj Close'].rolling(window=120).mean()
         data['MA240'] = data['Adj Close'].rolling(window=240).mean()
 
-        # Investment decision based on moving averages
-        try:
-            last_MA120 = data['MA120'].iloc[-1]
-            last_MA240 = data['MA240'].iloc[-1]
-            if last_MA120 > last_MA240:
-                decision = "It's a good time to invest because MA120 > MA240."
-            else:
-                decision = "It's not a favorable time to invest because MA120 < MA240."
-        except IndexError:
-            decision = "Insufficient data to make an investment decision."
+        if data['MA120'].iloc[-1] > data['MA240'].iloc[-1]:
+            decision = "Invest Advice: Buy MA120 > MA240"
+            decision_color = "green"
+        else:
+            decision = "Invest Advice: Sell MA120 < MA240"
+            decision_color = "red"
 
-        # Display the chart
-        plt.figure(figsize=(14, 7))
-        plt.plot(data['Adj Close'], label='Adjusted Close Price', color='blue')
-        plt.plot(data['MA120'], label='MA 120 days', color='green', linestyle='--')
-        plt.plot(data['MA240'], label='MA 240 days', color='red', linestyle='--')
-        plt.title(f'Bitcoin Price Analysis with MA120 and MA240\n{decision}')
-        plt.xlabel('Date')
-        plt.ylabel('Adjusted Close Price')
+        figure_path = f"Analysis/{self.ticker}.png"
+        os.makedirs(os.path.dirname(figure_path), exist_ok=True)
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(data.index, data['Adj Close'], label='Adj Close')
+        plt.plot(data.index, data['MA120'], label='MA 120 Days', color='green', linestyle='--')
+        plt.plot(data.index, data['MA240'], label='MA 240 Days', color='red', linestyle='--')
+        plt.title(f'{self.ticker} Investment Analysis')
+        plt.figtext(0.5, 0.01, decision, wrap=True, horizontalalignment='center', fontsize=12, color=decision_color)  # Ajouter le sous-titre ici
         plt.legend()
-        plt.show()
 
-        return decision
-        
-########################################################################################################################
+        plt.savefig(figure_path)
+
+        if show_plot:
+            plt.show()
+        plt.close()
+
+        return decision, figure_path
+
+
+def save_crypto_data_to_excel(crypto_data, filename='CryptoInvestmentData.xlsx', sheet_name='Crypto Info'):
+    wb = Workbook()
+    ws = wb.active
+    ws.title = sheet_name
+    
+    ws.column_dimensions[get_column_letter(1)].width = 15
+    ws.column_dimensions[get_column_letter(2)].width = 15
+    ws.column_dimensions[get_column_letter(3)].width = 10
+    ws.column_dimensions[get_column_letter(4)].width = 20
+    ws.column_dimensions[get_column_letter(5)].width = 30
+    ws.column_dimensions[get_column_letter(6)].width = 20
+    ws.column_dimensions[get_column_letter(7)].width = 40
+    
+    ws.append(['Ticker', 'Previous Close', 'Volume', 'Market Cap', 'Description', 'Investment Decision', 'Chart Analysis'])
+
+    for index, data in enumerate(crypto_data, start=1):
+        ws.append([
+            data['ticker'],
+            data['previous_close'],
+            data['volume'],
+            data['market_cap'],
+            data['description'],
+            data['investment_decision']
+        ])
+
+        img_path = data['Analysis_image']
+        if os.path.exists(img_path):
+            img = Image(img_path)
+            img.width, img.height = img.width * 0.25, img.height * 0.25
+            cell_ref = f'G{ws.max_row}'
+            ws.add_image(img, cell_ref)
+
+    wb.save(filename)
+
+tickers = [
+    'BTC-USD', 'ETH-USD', 'BNB-USD', 'XRP-USD', 'SOL-USD',
+    'ADA-USD', 'DOT-USD', 'DOGE-USD', 'LTC-USD', 'LINK-USD'
+]
+
+crypto_data_list = []
+for ticker in tickers:
+    crypto = Crypto(ticker)
+    decision, Analysis_image = crypto.analyze_investment_opportunity()
+    crypto_data = {
+        'ticker': ticker,
+        'previous_close': crypto.get_price_close(),
+        'volume': crypto.get_volume(),
+        'market_cap': crypto.get_market_cap(),
+        'description': crypto.get_description(),
+        'investment_decision': decision,
+        'Analysis_image': Analysis_image
+    }
+    crypto_data_list.append(crypto_data)
 
 class Bitcoin(Crypto):
     def __init__(self):
         super().__init__('BTC-USD')
-
-tickers = [
-    'BTC-USD',  # Bitcoin
-    'ETH-USD',  # Ethereum
-    'BNB-USD',  # Binance Coin
-    'XRP-USD',  # XRP
-    'SOL-USD',  # Solana
-    'ADA-USD',  # Cardano
-    'DOT-USD',  # Polkadot
-    'DOGE-USD', # Dogecoin
-    'LTC-USD',  # Litecoin
-    'LINK-USD'  # Chainlink
-]
-
-# Processing information for each cryptocurrency
-
-for ticker in tickers:
-    crypto = Crypto(ticker)
-    # Example code for processing each cryptocurrency's data would go here
 
 
     """
@@ -238,10 +334,54 @@ for ticker in tickers:
 
 class Portfolio:
     def __init__(self, name):
+        self.id = str(uuid.uuid4())
         self.name = name
         self.liquidity = 0
         self.crypto_balances = {}
-        self.transaction_history = [] 
+        self.transaction_history = []
+        
+    def save_portfolio_to_excel(self, filename='CryptoInvestmentData.xlsx'):
+        try:
+            wb = load_workbook(filename)
+            if 'Portfolios' in wb.sheetnames:
+                ws = wb['Portfolios']
+                if ws['A1'].value != 'ID':
+                    ws.insert_rows(1)
+                    ws.append(['ID', 'Name', 'Liquidity', 'Crypto Balances', 'Transaction History'])
+            else:
+                ws = wb.create_sheet('Portfolios')
+                ws.append(['ID', 'Name', 'Liquidity', 'Crypto Balances', 'Transaction History'])
+        except FileNotFoundError:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = 'Portfolios'
+            ws.append(['ID', 'Name', 'Liquidity', 'Crypto Balances', 'Transaction History'])
+
+        id_exists = False
+        for row in ws.iter_rows(min_row=2, max_col=1, values_only=True):
+            if self.id == row[0]:
+                id_exists = True
+                break
+
+        if not id_exists:
+            ws.append([
+                self.id, 
+                self.name, 
+                self.liquidity, 
+                ', '.join(f"{ticker}: {quantity}" for ticker, quantity in self.crypto_balances.items()), 
+                '; '.join(self.transaction_history)
+            ])
+        else:
+            for row in ws.iter_rows(min_row=2):
+                if row[0].value == self.id:
+                    row[1].value = self.name
+                    row[2].value = self.liquidity
+                    row[3].value = ', '.join(f"{ticker}: {quantity}" for ticker, quantity in self.crypto_balances.items())
+                    row[4].value = '; '.join(self.transaction_history)
+                    break
+
+        wb.save(filename)
+
     
     def set_name(self, new_name):
         self.name = new_name
@@ -323,15 +463,15 @@ class Portfolio:
                 print(f"Unable to retrieve the current price for {ticker}. Please try again.")
                 continue
 
-            fee = total_amount * 0.005  # Platform's fee calculation
-            amount_after_fees = total_amount - fee  # Actual amount to use for the purchase
+            fee = total_amount * 0.005 
+            amount_after_fees = total_amount - fee
 
             if self.liquidity >= total_amount:
                 purchasable_quantity = amount_after_fees / current_price
                 self.crypto_balances[ticker] = self.crypto_balances.get(ticker, 0) + purchasable_quantity
-                self.liquidity -= total_amount  # Deduct the total amount including fees
-                Platform.collect_fees(fee)  # Correctly calls collect_fees to add the fee to the platform's total fees
-                print(f"Purchase successful: {purchasable_quantity} of {ticker} for {amount_after_fees} USD (5% fee included).")
+                self.liquidity -= total_amount
+                Platform.collect_fees(fee)
+                print(f"Purchase successful: {purchasable_quantity} of {ticker} for {amount_after_fees} USD (0.5% fee included).")
                 print(f"Remaining liquidity: {self.liquidity} USD.")
                 break
             else:
@@ -372,7 +512,7 @@ class Portfolio:
             del self.crypto_balances[ticker]
             print(f"Sale successful: You sold {quantity_to_sell} {ticker} for a total of {amount_received} USD.")
             self.transaction_history.append(f"Sale of {quantity_to_sell} {ticker} received {amount_received} USD.")
-            print(f"Remaining liquidity: {self.liquidity} USD.")  # Displays the remaining liquidity after the sale
+            print(f"Remaining liquidity: {self.liquidity} USD.")
             break
 
 
@@ -380,37 +520,76 @@ class Portfolio:
 
 class Platform:
     _instance = None
-    total_fees = 0  # Tracking the total fees accumulated by the platform
+    total_fees = 0.0
+    users = []
 
     def __new__(cls, name, siret, location):
         if cls._instance is None:
-            cls._instance = super(Platform, cls).__new__(cls)
+            cls._instance = super().__new__(cls)
             cls._instance.name = name
             cls._instance.siret = siret
             cls._instance.location = location
-            cls._instance.users = []
         return cls._instance
 
     @classmethod
     def collect_fees(cls, fees):
         cls.total_fees += fees
-        print(f"Fees of {fees} USD added. Total fees accumulated: {cls.total_fees} USD.")
 
     def add_user(self, user):
         self.users.append(user)
-        print(f"User {user.username} added to the platform.")
+        print(f"User {user} added to the platform.")
 
     def remove_user(self, user):
-        self.users = [u for u in self.users if u.username != user.username]
-        print(f"User {user.username} removed from the platform.")
+        self.users = [u for u in self.users if u != user]
+        print(f"User {user} removed from the platform.")
 
     @classmethod
     def pay_taxes(cls):
         taxes = cls.total_fees * 0.30
         cls.total_fees -= taxes
-        print(f"Taxes of {taxes} USD paid. Remaining fees: {cls.total_fees} USD.")
 
-# Example of use
+    @classmethod
+    def save_accounting_to_excel(self, filename='CryptoInvestmentData.xlsx'):
+        today_str = date.today().isoformat()
+        try:
+            wb = load_workbook(filename)
+            if 'Accounting' in wb.sheetnames:
+                ws = wb['Accounting']
+            else:
+                ws = wb.create_sheet('Accounting')
+                ws.append(['Type', 'Amount', 'Description', 'Date'])
+        except FileNotFoundError:
+            wb = Workbook()
+            ws = wb.active
+            ws.title = 'Accounting'
+            ws.append(['Type', 'Amount', 'Description', 'Date'])
+
+        # Rechercher une ligne avec la date d'aujourd'hui
+        existing_entry = False
+        for row in ws.iter_rows(min_row=2, max_col=4, values_only=True):
+            if row[3] == today_str:
+                existing_entry = True
+                break
+
+        if not existing_entry:
+            fees_row = ['Fees', self.total_fees, 'Total fees accumulated', today_str]
+            taxes = self.total_fees * 0.30
+            taxes_row = ['Taxes', -taxes, 'Taxes paid', today_str]
+            net_profit = self.total_fees - taxes
+            net_profit_row = ['Net Profit', net_profit, 'Net profit after taxes', today_str]
+
+            ws.append(fees_row)
+            ws.append(taxes_row)
+            ws.append(net_profit_row)
+
+        wb.save(filename)
+        if not existing_entry:
+            print("Accounting data saved to Excel.")
+        else:
+            print("Today's accounting data already exists in Excel.")
+
+#################################################################################################################################
+# Test
 #################################################################################################################################
 platform = Platform("CryptoPlatform", 36252187900034, "Vilnius")
 #################################################################################################################################    
@@ -435,9 +614,9 @@ print()
 wallet1.add_liquidity()
 print()
 ########################################################################################################################################
-# Create an instance for Bitcoin
+# Create an instance on Bitcoin for Analysis
 crypto_btc = Crypto("BTC-USD")
-investment_decision = crypto_btc.analyze_investment_opportunity()
+investment_decision, _ = crypto_btc.analyze_investment_opportunity(show_plot=True)
 ######################################################################################################################################
 print(investment_decision)
 wallet1.buy_crypto()
@@ -451,12 +630,18 @@ print()
 wallet1.view_transaction_history()
 wallet1.view_balances()
 #####################################################################################################################################
-# Displaying total fees
 print()
 print(f"Total fees accumulated on the platform: {Platform.total_fees} USD")
 
-# Paying taxes
 platform.pay_taxes()
 
-# Displaying remaining fees after tax payment
 print(f"Remaining fees after taxes: {Platform.total_fees} USD")
+
+########################################################################################################################################
+# Add to Excel
+save_crypto_data_to_excel(crypto_data_list)
+user1.save_user_to_excel()
+wallet1.save_portfolio_to_excel()
+wallet2.save_portfolio_to_excel()
+platform.save_accounting_to_excel()
+
