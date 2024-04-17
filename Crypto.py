@@ -471,7 +471,7 @@ class Portfolio:
                 self.crypto_balances[ticker] = self.crypto_balances.get(ticker, 0) + purchasable_quantity
                 self.liquidity -= total_amount
                 Platform.collect_fees(fee)
-                print(f"Purchase successful: {purchasable_quantity} of {ticker} for {amount_after_fees} USD (0.5% fee included).")
+                print(f"Purchase successful: {purchasable_quantity} of {ticker} for {amount_after_fees} USD (0.05% fee included).")
                 print(f"Remaining liquidity: {self.liquidity} USD.")
                 break
             else:
@@ -644,4 +644,5 @@ user1.save_user_to_excel()
 wallet1.save_portfolio_to_excel()
 wallet2.save_portfolio_to_excel()
 platform.save_accounting_to_excel()
+
 
