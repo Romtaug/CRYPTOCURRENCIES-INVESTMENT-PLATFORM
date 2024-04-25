@@ -108,11 +108,9 @@ class UserAccount:
             ])
 
         wb.save(UserAccount.excel_file)
-
-
+    
     def view_total_liquidity(self):
         return sum(portfolio.liquidity for portfolio in self.portfolios)
-
 
     def set_username(self, new_username):
         if new_username in UserAccount.existing_usernames:
@@ -180,7 +178,6 @@ user1.save_user_to_excel()
 """
 
 ################################################################################################################################################################
-
 """
 ticker = yfinance.Ticker("BTC-USD")
 info = ticker.info
@@ -211,8 +208,7 @@ class Crypto:
     def get_market_cap(self):
         """Returns the market cap."""
         return self.info.get('marketCap') if self.info else "Market cap information not available."
-
-
+        
     def get_description(self):
         """Returns the description."""
         return self.info.get('description') if self.info else None
@@ -261,8 +257,7 @@ class Crypto:
         plt.close()
 
         return decision, figure_path
-
-
+        
 def save_crypto_data_to_excel(crypto_data, filename='CryptoInvestmentData.xlsx', sheet_name='Crypto Info'):
     wb = Workbook()
     ws = wb.active
@@ -275,7 +270,6 @@ def save_crypto_data_to_excel(crypto_data, filename='CryptoInvestmentData.xlsx',
     ws.column_dimensions[get_column_letter(5)].width = 30
     ws.column_dimensions[get_column_letter(6)].width = 20
     ws.column_dimensions[get_column_letter(7)].width = 40
-    
     ws.append(['Ticker', 'Previous Close', 'Volume', 'Market Cap', 'Description', 'Investment Decision', 'Chart Analysis'])
 
     for index, data in enumerate(crypto_data, start=1):
@@ -331,7 +325,6 @@ class Bitcoin(Crypto):
     """
 
 #######################################################################################################
-
 class Portfolio:
     def __init__(self, name):
         self.id = str(uuid.uuid4())
@@ -381,8 +374,7 @@ class Portfolio:
                     break
 
         wb.save(filename)
-
-    
+        
     def set_name(self, new_name):
         self.name = new_name
         print(f"The portfolio's name has been changed to '{new_name}'.")
@@ -477,8 +469,7 @@ class Portfolio:
             else:
                 print("Purchase failed. Insufficient liquid balance.")
                 break
-
-
+                
     def sell_crypto(self):
         if not self.crypto_balances:
             print("Your cryptocurrency portfolio is empty.")
@@ -515,9 +506,7 @@ class Portfolio:
             print(f"Remaining liquidity: {self.liquidity} USD.")
             break
 
-
 #####################################################################################################################################
-
 class Platform:
     _instance = None
     total_fees = 0.0
@@ -600,7 +589,6 @@ user1.get_user_info()
 print()
 wallet1 = Portfolio("wallet1")
 wallet2 = Portfolio("wallet2")
-
 user1.add_portfolio(wallet1)
 user1.get_user_info()
 print()
@@ -632,11 +620,8 @@ wallet1.view_balances()
 #####################################################################################################################################
 print()
 print(f"Total fees accumulated on the platform: {Platform.total_fees} USD")
-
 platform.pay_taxes()
-
 print(f"Remaining fees after taxes: {Platform.total_fees} USD")
-
 ########################################################################################################################################
 # Add to Excel
 save_crypto_data_to_excel(crypto_data_list)
