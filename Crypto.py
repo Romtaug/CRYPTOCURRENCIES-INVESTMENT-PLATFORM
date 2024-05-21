@@ -48,7 +48,7 @@ class UserAccount:
     existing_usernames = set()
     
     excel_file = 'user_accounts.xlsx'
-
+    # Encapsulation : attribut password can only be printed by the method get_password because it's a private attribute (__), data is hide from the outside for data integrity
     def __init__(self, username, password, email, first_name=None, last_name=None):
         if username in UserAccount.existing_usernames:
             raise ValueError(f"Username '{username}' is already taken. Please choose a different username.")
@@ -196,7 +196,8 @@ class Crypto:
             self.info = yfinance.Ticker(self.ticker).info
         except Exception as e:
             print(f"Error loading information for {self.ticker}: {e}")
-
+    
+    # Abstraction : details of the extraction by the yfinance API is hidden, simplifies complexity
     def get_price_close(self):
         """Returns the current price."""
         return self.info.get('previousClose') if self.info else None
@@ -291,14 +292,24 @@ def save_crypto_data_to_excel(crypto_data, filename='CryptoInvestmentData.xlsx',
 
     wb.save(filename)
 
+# Polymorphism : mainly classes trated by the instance of the Crypto class through inheritance for the 10 most popular cryptoccurencies
 tickers = [
     'BTC-USD', 'ETH-USD', 'BNB-USD', 'XRP-USD', 'SOL-USD',
     'ADA-USD', 'DOT-USD', 'DOGE-USD', 'LTC-USD', 'LINK-USD'
 ]
 
+class CryptoFactory:
+    @staticmethod # We use the class for this method not the object
+    # Factory Method : Here we create classes instances without specifying the exact class of the object created with the CryptoFactory class, no constructor
+    def create_crypto(ticker):
+        return Crypto(ticker)
+
 crypto_data_list = []
+factory = CryptoFactory()
+
 for ticker in tickers:
-    crypto = Crypto(ticker)
+    # Utilization of the factory
+    crypto = factory.create_crypto(ticker)
     decision, Analysis_image = crypto.analyze_investment_opportunity()
     crypto_data = {
         'ticker': ticker,
@@ -311,10 +322,11 @@ for ticker in tickers:
     }
     crypto_data_list.append(crypto_data)
 
+
+# Inheritance : subclass derivated from the Crypto parent class with same attributes (and methods witch can be overrides)
 class Bitcoin(Crypto):
     def __init__(self):
         super().__init__('BTC-USD')
-
 
     """
     print(f"{ticker} Price Close: {crypto.get_price_close()} USD")
@@ -404,8 +416,8 @@ class Portfolio:
             amount = float(amount)
             if amount > 0:
                 self.liquidity += amount
-                self.transaction_history.append(f"Added {amount} USD to liquidity.")
-                print(f"{amount} USD added to liquidity. Total liquidity: {self.liquidity} USD.")
+                self.transaction_history.append(f"Added {amount} USD to liquidity")
+                print(f"{amount} USD added to liquidity. Total liquidity: {self.liquidity} USD")
             else:
                 print("Please enter a positive amount.")
         except ValueError:
@@ -417,8 +429,8 @@ class Portfolio:
             amount = float(amount)
             if amount > 0 and self.liquidity >= amount:
                 self.liquidity -= amount
-                self.transaction_history.append(f"Withdrew {amount} USD from liquidity.")
-                print(f"{amount} USD withdrawn from liquidity. Remaining liquidity: {self.liquidity} USD.")
+                self.transaction_history.append(f"Withdrew {amount} USD from liquidity")
+                print(f"{amount} USD withdrawn from liquidity. Remaining liquidity: {self.liquidity} USD")
             elif amount <= 0:
                 print("Please enter a positive amount.")
             else:
@@ -464,7 +476,7 @@ class Portfolio:
                 self.liquidity -= total_amount
                 Platform.collect_fees(fee)
                 print(f"Purchase successful: {purchasable_quantity} of {ticker} for {amount_after_fees} USD (0.05% fee included).")
-                print(f"Remaining liquidity: {self.liquidity} USD.")
+                print(f"Remaining liquidity: {self.liquidity} USD")
                 break
             else:
                 print("Purchase failed. Insufficient liquid balance.")
@@ -501,13 +513,14 @@ class Portfolio:
             amount_received = quantity_to_sell * current_price
             self.liquidity += amount_received
             del self.crypto_balances[ticker]
-            print(f"Sale successful: You sold {quantity_to_sell} {ticker} for a total of {amount_received} USD.")
-            self.transaction_history.append(f"Sale of {quantity_to_sell} {ticker} received {amount_received} USD.")
-            print(f"Remaining liquidity: {self.liquidity} USD.")
+            print(f"Sale successful: You sold {quantity_to_sell} {ticker} for a total of {amount_received} USD")
+            self.transaction_history.append(f"Sale of {quantity_to_sell} {ticker} received {amount_received} USD")
+            print(f"Remaining liquidity: {self.liquidity} USD")
             break
 
 #####################################################################################################################################
-class Platform:
+# Singleton : only one instance for the platform (_intsance, classmethod)
+class Platform: 
     _instance = None
     total_fees = 0.0
     users = []
@@ -546,14 +559,13 @@ class Platform:
                 ws = wb['Accounting']
             else:
                 ws = wb.create_sheet('Accounting')
-                ws.append(['Type', 'Amount', 'Description', 'Date'])
+                ws.append(['Type', 'Amount (USDT)', 'Description', 'Date'])
         except FileNotFoundError:
             wb = Workbook()
             ws = wb.active
             ws.title = 'Accounting'
             ws.append(['Type', 'Amount', 'Description', 'Date'])
 
-        # Rechercher une ligne avec la date d'aujourd'hui
         existing_entry = False
         for row in ws.iter_rows(min_row=2, max_col=4, values_only=True):
             if row[3] == today_str:
@@ -580,7 +592,7 @@ class Platform:
 #################################################################################################################################
 # Test
 #################################################################################################################################
-platform = Platform("CryptoPlatform", 36252187900034, "Vilnius")
+platform = Platform("CryptoPlatform", 36252187900034, "Vilnius, Lithuania")
 #################################################################################################################################    
 user1 = UserAccount("romTaug20", "IloveVilniusTech$$", "romtaug@gmail.com", "Romain", "Taugourdeau")
 platform.add_user(user1)
@@ -629,5 +641,6 @@ user1.save_user_to_excel()
 wallet1.save_portfolio_to_excel()
 wallet2.save_portfolio_to_excel()
 platform.save_accounting_to_excel()
+
 
 
