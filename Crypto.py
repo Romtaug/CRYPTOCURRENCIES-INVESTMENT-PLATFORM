@@ -523,6 +523,7 @@ class Portfolio:
 class Platform: 
     _instance = None
     total_fees = 0.0
+    net_profit = 0.0
     users = []
 
     def __new__(cls, name, siret, location):
@@ -548,7 +549,15 @@ class Platform:
     @classmethod
     def pay_taxes(cls):
         taxes = cls.total_fees * 0.30
-        cls.total_fees -= taxes
+        cls.net_profit = cls.total_fees - taxes
+        
+    @classmethod
+    def get_total_fees(cls):
+        return cls.total_fees
+    
+    @classmethod
+    def get_net_profit(cls):
+        return cls.net_profit
 
     @classmethod
     def save_accounting_to_excel(self, filename='CryptoInvestmentData.xlsx'):
@@ -588,6 +597,7 @@ class Platform:
             print("Accounting data saved to Excel.")
         else:
             print("Today's accounting data already exists in Excel.")
+    
 
 #################################################################################################################################
 # Test
@@ -631,9 +641,9 @@ wallet1.view_transaction_history()
 wallet1.view_balances()
 #####################################################################################################################################
 print()
-print(f"Total fees accumulated on the platform: {Platform.total_fees} USD")
+print(f"Total fees accumulated on the platform: {Platform.get_total_fees()} USD")
 platform.pay_taxes()
-print(f"Remaining fees after taxes: {Platform.total_fees} USD")
+print(f"Net profit after taxes (30%): {Platform.get_net_profit()} USD")
 ########################################################################################################################################
 # Add to Excel
 save_crypto_data_to_excel(crypto_data_list)
