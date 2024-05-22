@@ -1,6 +1,8 @@
 import subprocess
 import sys
 import os
+import re
+from abc import ABC, abstractmethod
 
 def install_and_import(package, import_as=None):
     if not import_as:
@@ -18,7 +20,6 @@ def install_and_import(package, import_as=None):
             print(f"Error during the installation of {package}: {e}")
 
 libraries = {
-    're': 're',  
     'yfinance': 'yfinance', 
     'matplotlib': 'matplotlib.pyplot',  
     'datetime': 'datetime',
@@ -46,9 +47,7 @@ print()
 #####################################################################################################################
 class UserAccount:
     existing_usernames = set()
-    
-    excel_file = 'user_accounts.xlsx'
-    # Encapsulation : attribut password can only be printed by the method get_password because it's a private attribute (__), data is hide from the outside for data integrity
+    # Encapsulation : attribut password can only be printed by the method get_password because it's a private attribute (__) and email is protected (_), data is hide from the outside for data integrity
     def __init__(self, username, password, email, first_name=None, last_name=None):
         if username in UserAccount.existing_usernames:
             raise ValueError(f"Username '{username}' is already taken. Please choose a different username.")
@@ -185,11 +184,40 @@ Imprime toutes les clés et leurs valeurs associées
 for key, value in info.items():
    print(f"{key}: {value}")
 """
-class Crypto:
+
+# Interface : use of abstraction, split implemantation and the technical concepts concept
+class ICrypto(ABC): 
     def __init__(self, ticker):
         self.ticker = ticker
         self.info = None
         self.load_info()
+
+    @abstractmethod
+    def load_info(self):
+        """Load market data for the ticker."""
+        pass
+
+    @abstractmethod
+    def get_volume(self):
+        """Return the current volume as an abstract method."""
+        pass
+
+    @abstractmethod
+    def get_market_cap(self):
+        """Return the market cap as an abstract method."""
+        pass
+
+    @abstractmethod
+    def get_price_close(self):
+        """Returns the current price."""
+        pass
+    
+    @abstractmethod
+    def get_description(self):
+        """Returns the description."""
+        pass
+
+class Crypto(ICrypto):
 
     def load_info(self):
         try:
@@ -292,15 +320,14 @@ def save_crypto_data_to_excel(crypto_data, filename='CryptoInvestmentData.xlsx',
 
     wb.save(filename)
 
-# Polymorphism : mainly classes trated by the instance of the Crypto class through inheritance for the 10 most popular cryptoccurencies
 tickers = [
     'BTC-USD', 'ETH-USD', 'BNB-USD', 'XRP-USD', 'SOL-USD',
     'ADA-USD', 'DOT-USD', 'DOGE-USD', 'LTC-USD', 'LINK-USD'
 ]
 
 class CryptoFactory:
+    # Factory Method (DP) : Here we create classes instances of the object by delagating with CryptoFactory class, no constructor
     @staticmethod # We use the class for this method not the object
-    # Factory Method : Here we create classes instances without specifying the exact class of the object created with the CryptoFactory class, no constructor
     def create_crypto(ticker):
         return Crypto(ticker)
 
@@ -327,7 +354,49 @@ for ticker in tickers:
 class Bitcoin(Crypto):
     def __init__(self):
         super().__init__('BTC-USD')
+        
+    # Polymorphism : redefinition of the method
+    def analyze_investment_opportunity(self):
+        data = yfinance.download(self.ticker, start="2020-01-01", end=datetime.date.today().strftime('%Y-%m-%d'))
+        data['MA50'] = data['Adj Close'].rolling(window=50).mean()
+        if data['MA50'].iloc[-1] > data['Adj Close'].iloc[-1]:
+            decision = "Bitcoin Advice: Buy MA50 > Close"
+            decision_color = "green"
+        else:
+            decision = "Bitcoin Advice: Sell MA50 < Close"
+            decision_color = "red"
+        figure_path = f"Analysis/{self.ticker}.png"
+        plt.figure(figsize=(10, 6))
+        plt.plot(data.index, data['Adj Close'], label='Adj Close')
+        plt.plot(data.index, data['MA50'], label='MA 50 Days', color='blue', linestyle='--')
+        plt.title(f'{self.ticker} Bitcoin Analysis')
+        plt.legend()
+        plt.savefig(figure_path)
+        plt.close()
+        return decision, figure_path
 
+class Ethereum(Crypto):
+    def __init__(self):
+        super().__init__('ETH-USD')
+
+    def analyze_investment_opportunity(self):
+        data = yfinance.download(self.ticker, start="2020-01-01", end=datetime.date.today().strftime('%Y-%m-%d'))
+        data['MA200'] = data['Adj Close'].rolling(window=200).mean()
+        if data['MA200'].iloc[-1] > data['Adj Close'].iloc[-1]:
+            decision = "Ethereum Advice: Buy MA200 > Close"
+            decision_color = "green"
+        else:
+            decision = "Ethereum Advice: Sell MA200 < Close"
+            decision_color = "red"
+        figure_path = f"Analysis/{self.ticker}.png"
+        plt.figure(figsize=(10, 6))
+        plt.plot(data.index, data['Adj Close'], label='Adj Close')
+        plt.plot(data.index, data['MA200'], label='MA 200 Days', color='orange', linestyle='--')
+        plt.title(f'{self.ticker} Ethereum Analysis')
+        plt.legend()
+        plt.savefig(figure_path)
+        plt.close()
+        return decision, figure_path
     """
     print(f"{ticker} Price Close: {crypto.get_price_close()} USD")
     print(f"{ticker} Volume: {crypto.get_volume()}")
@@ -519,7 +588,7 @@ class Portfolio:
             break
 
 #####################################################################################################################################
-# Singleton : only one instance for the platform (_intsance, classmethod)
+# Singleton (DP): only one instance for the platform (_instance, classmethod)
 class Platform: 
     _instance = None
     total_fees = 0.0
@@ -626,7 +695,9 @@ print()
 ########################################################################################################################################
 # Create an instance on Bitcoin for Analysis
 crypto_btc = Crypto("BTC-USD")
+crypto_eth = Crypto("ETH-USD")
 investment_decision, _ = crypto_btc.analyze_investment_opportunity(show_plot=True)
+#investment_decision, _ = crypto_eth.analyze_investment_opportunity(show_plot=True)
 ######################################################################################################################################
 print(investment_decision)
 wallet1.buy_crypto()
